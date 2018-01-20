@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Bin Manager</string>
+    <string name="MAPS_API">AIzaSyAY8XQOLgEKrgV_zp9Ym4XPInq64x93g6c</string>
+    <string name="title_activity_maps">Map</string>
+</resources>
