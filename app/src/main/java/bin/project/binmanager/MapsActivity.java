@@ -27,7 +27,6 @@ import org.joda.time.DateTime;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-//pushing to git
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     private double[][] latLon = new double[100][2];
