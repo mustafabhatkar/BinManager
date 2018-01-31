@@ -4,6 +4,7 @@ package bin.project.binmanager;
  * Created by Mustafa on 29-01-2018.
  */
 
+
 public class Bins {
     double lat, lng;
     long fill_level;
