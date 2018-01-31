@@ -3,4 +3,7 @@
     <string name="MAPS_API">AIzaSyAY8XQOLgEKrgV_zp9Ym4XPInq64x93g6c</string>
     <string name="title_activity_maps">Map</string>
     <string name="directionsApiKey">AIzaSyD6ce5Rvq1JvVdPt6izuoFpMt6IVWtZW7Q</string>
+    <string name="drawer_item_home">Home</string>
+    <string name="drawer_item_signout">Sign Out</string>
+
 </resources>
