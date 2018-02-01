@@ -5,5 +5,6 @@
     <string name="directionsApiKey">AIzaSyD6ce5Rvq1JvVdPt6izuoFpMt6IVWtZW7Q</string>
     <string name="drawer_item_home">Home</string>
     <string name="drawer_item_signout">Sign Out</string>
+    <string name="dashboard">Dashboard</string>
 
 </resources>
