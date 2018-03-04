@@ -55,7 +55,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-
+//TODO : Add FAB for requesting direction
 public class MapsActivity extends AppCompatActivity implements
         OnMapReadyCallback {
     private double[][] latLon = new double[100][2];
