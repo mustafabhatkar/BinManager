@@ -14,14 +14,20 @@ import com.akexorcist.googledirection.DirectionCallback;
 import com.akexorcist.googledirection.GoogleDirection;
 import com.akexorcist.googledirection.constant.TransportMode;
 import com.akexorcist.googledirection.model.Direction;
+import com.akexorcist.googledirection.model.Leg;
+import com.akexorcist.googledirection.model.Route;
+import com.akexorcist.googledirection.model.Step;
+import com.akexorcist.googledirection.util.DirectionConverter;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -45,7 +51,7 @@ import com.mikepenz.materialdrawer.model.interfaces.IProfile;
 import org.joda.time.DateTime;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +60,8 @@ public class MapsActivity extends AppCompatActivity implements
         OnMapReadyCallback {
     private double[][] latLon = new double[100][2];
     //{{19.026756, 73.055807}, {19.027111, 73.057295}, {19.025488, 73.054763}, {19.026606, 73.055233}, {19.026264, 73.056633}};
+
+    private long[] fillLevelArray = new long[100];
 
     private Marker marker;
     private Marker locationMarker;
@@ -72,8 +80,11 @@ public class MapsActivity extends AppCompatActivity implements
 
     private GoogleMap mMap;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private List<LatLng> waypoints = new ArrayList<>();
 
     private Toolbar toolbar;
+
+    private AccountHeader headerResult;
 
     LocationManager locationManager;
 
@@ -84,7 +95,7 @@ public class MapsActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_maps);
         toolbar = findViewById(R.id.map_toolbar);
         setSupportActionBar(toolbar);
-
+        createDrawer();
 
         firebaseAuth = FirebaseAuth.getInstance();
         database = FirebaseDatabase.getInstance();
@@ -100,7 +111,10 @@ public class MapsActivity extends AppCompatActivity implements
                 Users users = dataSnapshot.getValue(Users.class);
                 disp_name = users.display_name;
                 email = users.email;
-                createDrawer();
+                headerResult.addProfiles(
+                        new ProfileDrawerItem().withName(disp_name).withEmail(email)
+                );
+
             }
 
 
@@ -150,8 +164,10 @@ public class MapsActivity extends AppCompatActivity implements
                     lat = bins.lat;
                     lng = bins.lng;
                     fill_level = bins.fill_level;
+                    if (fill_level >= 80) {
+                        waypoints.add(new LatLng(lat, lng));
+                    }
                     marker = createMarker(map, lat, lng, R.drawable.ic_bin_normal, fill_level);
-
                     latLon[i][0] = lat;
                     latLon[i][1] = lng;
                     i++;
@@ -163,6 +179,9 @@ public class MapsActivity extends AppCompatActivity implements
                 */
 
                 changeBinMarker(marker, map);
+                getUserLocation();
+
+
             }
 
             @Override
@@ -170,10 +189,17 @@ public class MapsActivity extends AppCompatActivity implements
 
             }
         });
-        LatLng userLocation = getLocation();
-        showDirection(userLocation);
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                new LatLng(19.026738, 73.055215), 18));
+
+   /*     if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                mMap.setMyLocationEnabled(true);
+            }
+        } else {
+            mMap.setMyLocationEnabled(true);
+        }*/
+
+
     }
 
     private void changeBinMarker(final Marker marker, final GoogleMap map) {
@@ -185,7 +211,7 @@ public class MapsActivity extends AppCompatActivity implements
                 Bins bins = dataSnapshot.getValue(Bins.class);
                 long fill_level = bins.fill_level;
                 marker.remove();
-                if (fill_level > 80) {
+                if (fill_level >= 80) {
                     map.addMarker(new MarkerOptions()
                             .position(new LatLng(19.027025, 73.057561))
                             .anchor(0.5f, 0.5f)
@@ -254,12 +280,9 @@ public class MapsActivity extends AppCompatActivity implements
     }
 
     private void createDrawer() {
-        AccountHeader headerResult = new AccountHeaderBuilder()
+        headerResult = new AccountHeaderBuilder()
                 .withActivity(MapsActivity.this)
                 .withHeaderBackground(R.color.primary_dark)
-                .addProfiles(
-                        new ProfileDrawerItem().withName(disp_name).withEmail(email)
-                )
                 .withOnAccountHeaderListener(new AccountHeader.OnAccountHeaderListener() {
                     @Override
                     public boolean onProfileChanged(View view, IProfile profile, boolean currentProfile) {
@@ -298,7 +321,7 @@ public class MapsActivity extends AppCompatActivity implements
         result.getActionBarDrawerToggle().setDrawerIndicatorEnabled(true);
     }
 
-    private LatLng getLocation() {
+    private LatLng getUserLocation() {
         final LatLng[] latLng = new LatLng[1];
         myRefUsers.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -310,11 +333,12 @@ public class MapsActivity extends AppCompatActivity implements
                 if (locationMarker != null)
                     locationMarker.remove();
                 locationMarker = mMap.addMarker(new MarkerOptions()
-                        .position(latLng[0])
+                        .position(latLng[0]).icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_user))
                         .title("You")
 
                 );
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng[0], 15));
+                showDirection(latLng[0]);
 
 
             }
@@ -324,103 +348,100 @@ public class MapsActivity extends AppCompatActivity implements
 
             }
         });
+
         return latLng[0];
-//        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-//        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-//            // TODO: Consider calling
-//            //    ActivityCompat#requestPermissions
-//            // here to request the missing permissions, and then overriding
-//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-//            //                                          int[] grantResults)
-//            // to handle the case where the user grants the permission. See the documentation
-//            // for ActivityCompat#requestPermissions for more details.
-//            return;
-//        }
-//
-//        if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
-//            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, new LocationListener() {
-//                @Override
-//                public void onLocationChanged(Location location) {
-//                    double latitude = location.getLatitude();
-//                    double longitude = location.getLongitude();
-//                    LatLng latLng = new LatLng(latitude, longitude);
-//                      if(locationMarker!= null)
-//                          locationMarker.remove();
-//                       locationMarker = mMap.addMarker(new MarkerOptions()
-//                               .position(latLng)
-//                               .title("You")
-//
-//                       );
-//                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
-//                    myRefUsers.child("lat").setValue(latitude);
-//                    myRefUsers.child("lng").setValue(longitude);
-//
-//                }
-//
-//                @Override
-//                public void onStatusChanged(String provider, int status, Bundle extras) {
-//
-//                }
-//
-//                @Override
-//                public void onProviderEnabled(String provider) {
-//
-//                }
-//
-//                @Override
-//                public void onProviderDisabled(String provider) {
-//
-//                }
-//            });
-//        }
-//        else if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
-//            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, new LocationListener() {
-//                @Override
-//                public void onLocationChanged(Location location) {
-//                    double latitude = location.getLatitude();
-//                    double longitude = location.getLongitude();
-//                    LatLng latLng = new LatLng(latitude, longitude);
-//                    if(locationMarker!= null)
-//                        locationMarker.remove();
-//                    locationMarker = mMap.addMarker(new MarkerOptions()
-//                            .position(latLng)
-//                            .title("You")
-//
-//                    );
-//                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
-//                    myRefUsers.child("lat").setValue(latitude);
-//                    myRefUsers.child("lng").setValue(longitude);
-//                }
-//
-//                @Override
-//                public void onStatusChanged(String provider, int status, Bundle extras) {
-//
-//                }
-//
-//                @Override
-//                public void onProviderEnabled(String provider) {
-//
-//                }
-//
-//                @Override
-//                public void onProviderDisabled(String provider) {
-//
-//                }
-//            });
-//        }
+/*        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+
+        if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    double latitude = location.getLatitude();
+                    double longitude = location.getLongitude();
+                    LatLng latLng = new LatLng(latitude, longitude);
+                      if(locationMarker!= null)
+                          locationMarker.remove();
+                       locationMarker = mMap.addMarker(new MarkerOptions()
+                               .position(latLng)
+                               .title("You")
+
+                       );
+                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
+                    myRefUsers.child("lat").setValue(latitude);
+                    myRefUsers.child("lng").setValue(longitude);
+
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+
+                }
+
+                @Override
+                public void onProviderEnabled(String provider) {
+
+                }
+
+                @Override
+                public void onProviderDisabled(String provider) {
+
+                }
+            });
+        }
+        else if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    double latitude = location.getLatitude();
+                    double longitude = location.getLongitude();
+                    LatLng latLng = new LatLng(latitude, longitude);
+                    if(locationMarker!= null)
+                        locationMarker.remove();
+                    locationMarker = mMap.addMarker(new MarkerOptions()
+                            .position(latLng)
+                            .title("You")
+
+                    );
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
+                    myRefUsers.child("lat").setValue(latitude);
+                    myRefUsers.child("lng").setValue(longitude);
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+
+                }
+
+                @Override
+                public void onProviderEnabled(String provider) {
+
+                }
+
+                @Override
+                public void onProviderDisabled(String provider) {
+
+                }
+            });
+        }*/
     }
 
 
     private void showDirection(LatLng userLocation) {
-        List<LatLng> waypoints = Arrays.asList(
-                new LatLng(latLon[0][0], latLon[0][1]),
-                new LatLng(latLon[1][0], latLon[1][1]),
-                new LatLng(latLon[2][0], latLon[2][1]),
-                new LatLng(latLon[3][0], latLon[3][1])
-        );
         GoogleDirection.withServerKey(getString(R.string.directionsApiKey))
-                .from(new LatLng(19.026113, 73.055319))
-                .to(new LatLng(19.026079, 73.055242))
+                .from(userLocation)
+                .and(waypoints)
+                .to(waypoints.get(waypoints.size() - 1))
+                .optimizeWaypoints(true)
                 .transportMode(TransportMode.DRIVING)
                 .execute(new DirectionCallback() {
                     @Override
@@ -428,6 +449,21 @@ public class MapsActivity extends AppCompatActivity implements
                         if (direction.isOK()) {
                             // Do something
                             Log.d(TAG, "onDirectionSuccess: success");
+                            Route route = direction.getRouteList().get(0);
+                            int legCount = route.getLegList().size();
+                            for (int index = 0; index < legCount; index++) {
+                                Leg leg = route.getLegList().get(index);
+                                mMap.addMarker(new MarkerOptions().position(leg.getStartLocation().getCoordination()));
+                                if (index == legCount - 1) {
+                                    mMap.addMarker(new MarkerOptions().position(leg.getEndLocation().getCoordination()));
+                                }
+                                List<Step> stepList = leg.getStepList();
+                                ArrayList<PolylineOptions> polylineOptionList = DirectionConverter.createTransitPolyline(MapsActivity.this, stepList, 5, Color.RED, 3, Color.BLUE);
+                                for (PolylineOptions polylineOption : polylineOptionList) {
+                                    mMap.addPolyline(polylineOption);
+                                }
+                            }
+                            setCameraWithCoordinationBounds(route);
 
                         } else {
                             // Do something
@@ -449,6 +485,12 @@ public class MapsActivity extends AppCompatActivity implements
         //NO
     }
 
+    private void setCameraWithCoordinationBounds(Route route) {
+        LatLng southwest = route.getBound().getSouthwestCoordination().getCoordination();
+        LatLng northeast = route.getBound().getNortheastCoordination().getCoordination();
+        LatLngBounds bounds = new LatLngBounds(southwest, northeast);
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+    }
 }
 
 
