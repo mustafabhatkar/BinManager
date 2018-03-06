@@ -5,6 +5,16 @@
     <string name="directionsApiKey">AIzaSyD6ce5Rvq1JvVdPt6izuoFpMt6IVWtZW7Q</string>
     <string name="drawer_item_home">Home</string>
     <string name="drawer_item_signout">Sign Out</string>
+
+    <string name="drawer_item_manageBins">Manage bins</string>
+    <string name="drawer_item_addBin">Add Bin</string>
+    <string name="drawer_item_removeBin">Remove bin</string>
+
     <string name="dashboard">Dashboard</string>
 
+    <string name="display_name_admin">Admin</string>
+    <string name="bins_lat">lat</string>
+    <string name="bins_lng">lng</string>
+    <string name="bins_distance">distance from</string>
+    <string name="fill_level">fill_level</string>
 </resources>

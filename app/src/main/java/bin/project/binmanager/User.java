@@ -5,8 +5,8 @@ package bin.project.binmanager;
  */
 
 public class User {
-    String display_name;
-    double lat, lng;
+    public String display_name;
+    public double lat, lng;
 
     public User() {
     }

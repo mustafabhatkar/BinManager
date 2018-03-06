@@ -1,13 +1,15 @@
 package bin.project.binmanager;
 
+import java.io.Serializable;
+
 /**
  * Created by Mustafa on 29-01-2018.
  */
 
 
-public class Bins {
-    double lat, lng;
-    long fill_level;
+public class Bins implements Serializable{
+    public double lat, lng;
+    public long fill_level;
 
 
     public Bins() {

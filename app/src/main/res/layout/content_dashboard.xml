@@ -32,6 +32,7 @@
 
             <TextView
                 style="@style/TextAppearance.AppCompat.Medium"
+                android:id="@+id/textAllBins"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
@@ -39,6 +40,7 @@
 
             <TextView
                 style="@style/TextAppearance.AppCompat.Medium"
+                android:id="@+id/textEmptiedBins"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -46,6 +48,7 @@
 
             <TextView
                 style="@style/TextAppearance.AppCompat.Medium"
+                android:id="@+id/textFilledBins"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"

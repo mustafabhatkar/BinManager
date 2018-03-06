@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/BinManager.iml" filepath="$PROJECT_DIR$/BinManager.iml" />
-      <module fileurl="file://C:\AndroidStudio\BinManager\BinManager.iml" filepath="C:\AndroidStudio\BinManager\BinManager.iml" />
       <module fileurl="file://F:\Docs\AppDevelopment\Mustafa\AndroidStudioApps\BinManager\.idea\BinManager.iml" filepath="F:\Docs\AppDevelopment\Mustafa\AndroidStudioApps\BinManager\.idea\BinManager.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
