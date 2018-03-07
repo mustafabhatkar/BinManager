@@ -3,17 +3,10 @@ package bin.project.binmanager;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.Looper;
-import android.renderscript.RenderScript;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -40,45 +33,33 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
-import com.google.maps.DirectionsApi;
 import com.google.maps.GeoApiContext;
-import com.google.maps.errors.ApiException;
-import com.google.maps.model.DirectionsResult;
-import com.google.maps.model.TravelMode;
 import com.mikepenz.materialdrawer.AccountHeader;
 import com.mikepenz.materialdrawer.AccountHeaderBuilder;
 import com.mikepenz.materialdrawer.Drawer;
 import com.mikepenz.materialdrawer.DrawerBuilder;
+import com.mikepenz.materialdrawer.model.ExpandableDrawerItem;
 import com.mikepenz.materialdrawer.model.ProfileDrawerItem;
 import com.mikepenz.materialdrawer.model.SecondaryDrawerItem;
 import com.mikepenz.materialdrawer.model.interfaces.IDrawerItem;
 import com.mikepenz.materialdrawer.model.interfaces.IProfile;
 
-import org.joda.time.DateTime;
-import org.json.JSONObject;
-
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
-import java.util.function.ToDoubleBiFunction;
-
 
 
 public class MapsActivity extends AppCompatActivity implements
-        OnMapReadyCallback
-{
+        OnMapReadyCallback {
     private double[][] latLon = new double[100][2];
     //{{19.026756, 73.055807}, {19.027111, 73.057295}, {19.025488, 73.054763}, {19.026606, 73.055233}, {19.026264, 73.056633}};
 
@@ -96,7 +77,7 @@ public class MapsActivity extends AppCompatActivity implements
     private String TAG = MapsActivity.class.getSimpleName();
     private double lat, lng;
     private long fill_level;
-    private String disp_name ="";
+    private String disp_name = "";
     private String email = "";
 
     private GoogleMap mMap;
@@ -122,6 +103,11 @@ public class MapsActivity extends AppCompatActivity implements
     private Vector vector;
 
     private FloatingActionButton floatingActionButton;
+    private Polyline polyline;
+    private List<Polyline> polylines = new ArrayList<Polyline>();
+    private List<Marker> listOfMarkerForFilledBins = new ArrayList<Marker>();
+    private Marker markerForFilledBins;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,7 +115,7 @@ public class MapsActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_maps);
         toolbar = findViewById(R.id.map_toolbar);
         setSupportActionBar(toolbar);
-        floatingActionButton = (FloatingActionButton)findViewById(R.id.floatingActionButton);
+        floatingActionButton = (FloatingActionButton) findViewById(R.id.floatingActionButton);
 
         vector = new Vector();
 
@@ -164,8 +150,6 @@ public class MapsActivity extends AppCompatActivity implements
         createDrawer();
 
 
-
-
         //for toolbar transparency
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -198,9 +182,9 @@ public class MapsActivity extends AppCompatActivity implements
         mMap = map;
         map.getUiSettings().setMapToolbarEnabled(false);
 
-        vector.add(0,0);
+        vector.add(0, 0);
 
-        if(mMap != null){
+        if (mMap != null) {
             mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
                 @Override
                 public View getInfoWindow(Marker marker) {
@@ -209,24 +193,24 @@ public class MapsActivity extends AppCompatActivity implements
 
                 @Override
                 public View getInfoContents(Marker marker) {
-                    View v = getLayoutInflater().inflate(R.layout.bin_info_window,null);
-                    TextView bininfotitle =  v.findViewById(R.id.binIdInfo);
-                    TextView bininfoFillLevel =  v.findViewById(R.id.binFlInfo);
-                    TextView binFillLabel =   (TextView)v.findViewById(R.id.fillLabel);
+                    View v = getLayoutInflater().inflate(R.layout.bin_info_window, null);
+                    TextView bininfotitle = v.findViewById(R.id.binIdInfo);
+                    TextView bininfoFillLevel = v.findViewById(R.id.binFlInfo);
+                    TextView binFillLabel = v.findViewById(R.id.fillLabel);
                     try {
                         // TODO : marker data not reflecting in infowindow for location marker
                         // though marker.infowindow shows data in info window
-                        if(marker.getTitle().contains("User")){
+                        if (marker.getTitle().contains("User")) {
                             bininfotitle.setText("User");
-                            binFillLabel.setVisibility(View.INVISIBLE);
-                            bininfoFillLevel.setVisibility(View.INVISIBLE);
+                            binFillLabel.setVisibility(View.GONE);
+                            bininfoFillLevel.setVisibility(View.GONE);
                             return v;
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-                    Log.d(TAG, "getInfoContents: "+ marker.getTitle());
-                    bininfotitle.setText("Bin "+ marker.getTitle());
+                    Log.d(TAG, "getInfoContents: " + marker.getTitle());
+                    bininfotitle.setText("Bin " + marker.getTitle());
                     bininfoFillLevel.setText(marker.getSnippet());
                     return v;
                 }
@@ -237,7 +221,7 @@ public class MapsActivity extends AppCompatActivity implements
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
 
-                int i = 1,id;
+                int i = 1, id;
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
                     Bins bins = snapshot.getValue(Bins.class);
                     lat = bins.lat;
@@ -248,12 +232,12 @@ public class MapsActivity extends AppCompatActivity implements
                         waypoints.add(new LatLng(lat, lng));
                     }*/
                     marker = createMarker(map, lat, lng, fill_level, id);
-                    while(i!= id){
-                        vector.add( i, 1);
+                    while (i != id) {
+                        vector.add(i, 1);
                         i++;
                     }
                     vector.add(id, marker);
-                    changeBinMarker((Marker)vector.elementAt(id), map, marker.getTitle());
+                    changeBinMarker((Marker) vector.elementAt(id), map, marker.getTitle());
                     i++;
 //                    latLon[i][0] = lat;
 //                    latLon[i][1] = lng;
@@ -263,9 +247,9 @@ public class MapsActivity extends AppCompatActivity implements
                     addDistanceOfBinsToDb(dataSnapshot.getChildrenCount(), latLon[j][0], latLon[j][1], j);
                 }
 
-
               changeBinMarker(marker, map, marker.getTitle());
                 getUserLocation();*/
+
             }
 
             @Override
@@ -283,91 +267,94 @@ public class MapsActivity extends AppCompatActivity implements
             mMap.setMyLocationEnabled(true);
         }*/
         //  showDirection(userLocation);
+
+
         map.moveCamera(CameraUpdateFactory.newLatLngZoom(
                 new LatLng(19.026738, 73.055215), 16));
 
         floatingActionButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(addClickFlag){
-                  addClickFlag = false;
-                  floatingActionButton.setImageResource(R.drawable.ic_show_direction);
-                  return;
-                }
-                if(deleteClickFlag){
-                    deleteClickFlag = false;
+                if (addClickFlag) {
+                    addClickFlag = false;
                     floatingActionButton.setImageResource(R.drawable.ic_show_direction);
                     return;
                 }
-                else if(!userlocationFlag) {
-                        for (Object obj : vector) {
-                            if (obj instanceof Marker) {
-                                if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80) {
-                                    Log.d(TAG, "onClick:Integer.parseInt(((Marker) obj).getSnippet())  " + Integer.parseInt(((Marker) obj).getSnippet()));
-                                    waypoints.add((((Marker) obj).getPosition()));
-                                }
+                if (deleteClickFlag) {
+                    deleteClickFlag = false;
+                    floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                    return;
+                } else if (!userlocationFlag) {
+                    for (Object obj : vector) {
+                        if (obj instanceof Marker) {
+                            if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80) {
+                                Log.d(TAG, "onClick:Integer.parseInt(((Marker) obj).getSnippet())  " + Integer.parseInt(((Marker) obj).getSnippet()));
+                                waypoints.add((((Marker) obj).getPosition()));
                             }
                         }
-                        getUserLocation(map);
-                        floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
-                        userlocationFlag = true;
                     }
-                else{
+                    getUserLocation(map);
+                    floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
+                    userlocationFlag = true;
+                } else {
                     userlocationFlag = false;
                     floatingActionButton.setImageResource(R.drawable.ic_show_direction);
-                    // TODO: remove polylines, clear waypoints
-
-
-
+                    for (Polyline line : polylines) {
+                        line.remove();
+                    }
+                    polylines.clear();
+                    for (Marker marker : listOfMarkerForFilledBins) {
+                        marker.remove();
+                        Log.d(TAG, "removing ");
+                    }
                 }
             }
         });
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-                @Override
-                public void onMapClick(LatLng latlng) {
-                    if (addClickFlag) {
-                        if(vector.indexOf(1)!= -1 ){
-                            getBinId = vector.indexOf(1);
-                            setFlag = true;
-                        }
-                        else{
-                            setFlag = false;
-                            getBinId = vector.size();
-                        }
-                        final LatLng point = latlng;
-                        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                switch (which) {
-                                    case DialogInterface.BUTTON_POSITIVE:
-                                        //Yes button clicked
-                                        String binId = String.valueOf(getBinId);
-                                        marker = createMarker(mMap, point.latitude, point.longitude, 0, getBinId);
-                                        Log.d(TAG, "onClick: Vector sizr" + vector.size());
-                                        Log.d(TAG, "onClick: Vector" + vector);
-                                        if(setFlag)
-                                            vector.set(getBinId,marker);
-                                        else
-                                            vector.add(vector.size(),marker);
-                                        changeBinMarker(marker, mMap, marker.getTitle());
-                                        myRefBin.child(binId).child("lat").setValue(point.latitude);
-                                        myRefBin.child(binId).child("lng").setValue(point.longitude);
-                                        myRefBin.child(binId).child("fill_level").setValue(0);
-                                        break;
-
-                                    case DialogInterface.BUTTON_NEGATIVE:
-                                        //No button clicked
-                                        break;
-                                }
-                            }
-                        };
-
-                        AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(MapsActivity.this, R.style.MaterialBaseTheme_Light_AlertDialog));
-                        builder.setMessage("Add bin "+ getBinId + "\nat location: " + "\n(" + point.latitude + ", " + point.longitude + ")").setPositiveButton("Yes", dialogClickListener)
-                                .setNegativeButton("No", dialogClickListener).show();
+            @Override
+            public void onMapClick(LatLng latlng) {
+                if (addClickFlag) {
+                    if (vector.indexOf(1) != -1) {
+                        getBinId = vector.indexOf(1);
+                        setFlag = true;
+                    } else {
+                        setFlag = false;
+                        getBinId = vector.size();
                     }
+                    final LatLng point = latlng;
+                    DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            switch (which) {
+                                case DialogInterface.BUTTON_POSITIVE:
+                                    //Yes button clicked
+                                    String binId = String.valueOf(getBinId);
+                                    marker = createMarker(mMap, point.latitude, point.longitude, 0, getBinId);
+                                    Log.d(TAG, "onClick: Vector size" + vector.size());
+                                    Log.d(TAG, "onClick: Vector" + vector);
+                                    if (setFlag)
+                                        vector.set(getBinId, marker);
+                                    else
+                                        vector.add(vector.size(), marker);
+                                    changeBinMarker(marker, mMap, marker.getTitle());
+                                    myRefBin.child(binId).child("lat").setValue(point.latitude);
+                                    myRefBin.child(binId).child("lng").setValue(point.longitude);
+                                    myRefBin.child(binId).child("fill_level").setValue(0);
+                                    break;
+
+                                case DialogInterface.BUTTON_NEGATIVE:
+                                    //No button clicked
+                                    break;
+                            }
+                        }
+                    };
+
+                    AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(MapsActivity.this, R.style.MaterialBaseTheme_Light_AlertDialog));
+                    builder.setMessage("Add bin " + getBinId + "\nat location: " + "\n(" + point.latitude + ", " + point.longitude + ")").setPositiveButton("Yes", dialogClickListener)
+                            .setNegativeButton("No", dialogClickListener).show();
                 }
+            }
         });
 
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
@@ -392,18 +379,18 @@ public class MapsActivity extends AppCompatActivity implements
                     };
 
                     AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(MapsActivity.this, R.style.MaterialBaseTheme_Light_AlertDialog));
-                    builder.setMessage("Remove bin "+marker1.getTitle()).setPositiveButton("Yes", dialogClickListener)
+                    builder.setMessage("Remove bin " + marker1.getTitle()).setPositiveButton("Yes", dialogClickListener)
                             .setNegativeButton("No", dialogClickListener).show();
                 }
 
-            return false;
+                return false;
 
             }
         });
     }
 
-    protected Marker createMarker(GoogleMap map, double latitude, double longitude, long fill_level,int id) {
-        if(fill_level>=80)
+    protected Marker createMarker(GoogleMap map, double latitude, double longitude, long fill_level, int id) {
+        if (fill_level >= 80)
             return map.addMarker(new MarkerOptions()
                     .position(new LatLng(latitude, longitude))
                     .anchor(0.5f, 0.5f)
@@ -420,7 +407,7 @@ public class MapsActivity extends AppCompatActivity implements
     }
 
     private void changeBinMarker(final Marker marker, final GoogleMap map, String title) {
-        fillListener =  myRefBin.child(title).child("fill_level").addValueEventListener(new ValueEventListener() {
+        fillListener = myRefBin.child(title).child("fill_level").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 // This method is called once with the initial value and again
@@ -434,8 +421,7 @@ public class MapsActivity extends AppCompatActivity implements
                         marker.setSnippet(fill_level_string);
                         marker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bin_normal));
                     }
-                }
-                catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -448,7 +434,6 @@ public class MapsActivity extends AppCompatActivity implements
         });
     }
 
-    // TODO : optimize drawer, resolve collapsed item position issue
     private void createDrawer() {
         headerResult = new AccountHeaderBuilder()
                 .withActivity(MapsActivity.this)
@@ -470,16 +455,18 @@ public class MapsActivity extends AppCompatActivity implements
                     .withActivity(MapsActivity.this)
                     .withToolbar(toolbar)
                     .addDrawerItems(
-                            new SecondaryDrawerItem().withName(R.string.drawer_item_manageBins).withSubItems(
-                                    new SecondaryDrawerItem().withName(R.string.drawer_item_addBin),
-                                    new SecondaryDrawerItem().withName(R.string.drawer_item_removeBin)),
-                            new SecondaryDrawerItem().withName(R.string.dashboard).withSelectable(false),
-                            new SecondaryDrawerItem().withName(R.string.drawer_item_signout)
-                    ).withOnDrawerItemClickListener(new Drawer.OnDrawerItemClickListener() {
+                            new ExpandableDrawerItem().withIdentifier(1).withName(R.string.drawer_item_manageBins).withSubItems(
+                                    new SecondaryDrawerItem().withIdentifier(2).withName(R.string.drawer_item_addBin),
+                                    new SecondaryDrawerItem().withIdentifier(3).withName(R.string.drawer_item_removeBin)),
+                            new SecondaryDrawerItem().withIdentifier(4).withName(R.string.dashboard).withSelectable(false),
+                            new SecondaryDrawerItem().withIdentifier(5).withName(R.string.drawer_item_signout)
+                    )
+                    .withOnDrawerItemClickListener(new Drawer.OnDrawerItemClickListener() {
                         @Override
                         public boolean onItemClick(View view, int position, IDrawerItem drawerItem) {
                             // do something with the clicked item :D
-                            switch (position) {
+                            Log.d(TAG, "onItemClick: " + drawerItem.getIdentifier());
+                            switch ((int) drawerItem.getIdentifier()) {
                                 case 2:
 
                                     if (!addClickFlag) {
@@ -500,15 +487,14 @@ public class MapsActivity extends AppCompatActivity implements
                                         deleteClickFlag = true;
                                         userlocationFlag = false;
                                         addClickFlag = false;
-                                    } else{
+                                    } else {
                                         deleteClickFlag = false;
                                         floatingActionButton.setImageResource(R.drawable.ic_show_direction);
                                     }
                                     break;
                                 case 4:
                                     dashboard = true;
-
-                                    //startActivity(new Intent(MapsActivity.this, Dashboard.class));
+                                    startActivity(new Intent(MapsActivity.this, Dashboard.class));
                                     break;
                                 case 5:
                                     firebaseAuth.signOut();
@@ -582,6 +568,7 @@ public class MapsActivity extends AppCompatActivity implements
 
             }
         });
+
         return latLng[0];
 /*        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -686,14 +673,17 @@ public class MapsActivity extends AppCompatActivity implements
                             int legCount = route.getLegList().size();
                             for (int index = 0; index < legCount; index++) {
                                 Leg leg = route.getLegList().get(index);
-                                mMap.addMarker(new MarkerOptions().position(leg.getStartLocation().getCoordination()));
+                                markerForFilledBins = mMap.addMarker(new MarkerOptions().position(leg.getStartLocation().getCoordination()));
+                                listOfMarkerForFilledBins.add(markerForFilledBins);
                                 if (index == legCount - 1) {
-                                    mMap.addMarker(new MarkerOptions().position(leg.getEndLocation().getCoordination()));
+                                    markerForFilledBins = mMap.addMarker(new MarkerOptions().position(leg.getEndLocation().getCoordination()));
+                                    listOfMarkerForFilledBins.add(markerForFilledBins);
                                 }
                                 List<Step> stepList = leg.getStepList();
                                 ArrayList<PolylineOptions> polylineOptionList = DirectionConverter.createTransitPolyline(MapsActivity.this, stepList, 5, Color.RED, 3, Color.BLUE);
                                 for (PolylineOptions polylineOption : polylineOptionList) {
-                                    mMap.addPolyline(polylineOption);
+                                    polyline = mMap.addPolyline(polylineOption);
+                                    polylines.add(polyline);
 
                                 }
                             }
