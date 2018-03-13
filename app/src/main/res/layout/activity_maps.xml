@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:fab="http://schemas.android.com/apk/res-auto"
     android:fitsSystemWindows="true"
     tools:context="bin.project.binmanager.MapsActivity">
 
@@ -34,7 +35,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         tools:context="bin.project.binmanager.MapsActivity" />
-
+    <!--
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/floatingActionButton"
         android:layout_width="wrap_content"
@@ -49,5 +50,59 @@
 
         android:clickable="true"
         app:srcCompat="@drawable/ic_show_direction" />
+        -->
+
+
+    <com.github.clans.fab.FloatingActionMenu
+        android:id="@+id/floatingActionMenu"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_alignEnd="@+id/map_toolbar_container"
+        android:layout_alignParentBottom="true"
+        fab:menu_colorNormal="@color/primary"
+        fab:menu_colorPressed="@color/primary"
+        android:layout_marginBottom="12dp"
+        android:layout_marginEnd="12dp">
+
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/filledBinsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_filled"
+            app:fab_colorNormal="@color/primary"
+            app:fab_colorPressed="@color/primary"
+             fab:fab_size="mini"
+            fab:fab_label="pickup filled bins" />
+
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/selectBinsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_select"
+            app:fab_colorNormal="@color/primary"
+            app:fab_colorPressed="@color/primary"
+            fab:fab_size="mini"
+            fab:fab_label="Select bins for pickup" />
+
+
+
+    </com.github.clans.fab.FloatingActionMenu>
+
+    <com.github.clans.fab.FloatingActionButton
+        android:id="@+id/floatingActionButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:layout_marginEnd="12dp"
+        app:fab_colorNormal="@color/primary"
+        app:fab_colorPressed="@color/primary"
+        android:src="@drawable/ic_fab_cancel"
+        android:visibility="gone"
+        app:fab_label=""
+        android:layout_alignEnd="@+id/map_toolbar_container"
+        android:layout_alignParentBottom="true"
+        />
+
+
 
 </RelativeLayout>

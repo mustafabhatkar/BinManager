@@ -6,7 +6,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
+//import android.support.design.widget.FloatingActionButton;
+import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
+
+
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -89,6 +93,7 @@ public class MapsActivity extends AppCompatActivity implements
     private boolean deleteClickFlag = false;
     private boolean userlocationFlag = false;
     private boolean setFlag = false;
+    private boolean selectFlag = false;
 
     private List<LatLng> waypoints = new ArrayList<>();
 
@@ -102,10 +107,17 @@ public class MapsActivity extends AppCompatActivity implements
 
     private Vector vector;
 
-    private FloatingActionButton floatingActionButton;
+    private FloatingActionButton floatingActionButton, fabSelect, fabFilled;
+    private FloatingActionMenu floatingActionMenu;
+
+
+
     private Polyline polyline;
     private List<Polyline> polylines = new ArrayList<Polyline>();
     private List<Marker> listOfMarkerForFilledBins = new ArrayList<Marker>();
+    private List<Marker> listOfMarkerForSelectedBins = new ArrayList<Marker>();
+
+
     private Marker markerForFilledBins;
 
 
@@ -115,7 +127,10 @@ public class MapsActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_maps);
         toolbar = findViewById(R.id.map_toolbar);
         setSupportActionBar(toolbar);
-        floatingActionButton = (FloatingActionButton) findViewById(R.id.floatingActionButton);
+        floatingActionButton = findViewById(R.id.floatingActionButton);
+        floatingActionMenu = findViewById(R.id.floatingActionMenu);
+        fabFilled = findViewById(R.id.filledBinsButton);
+        fabSelect = findViewById(R.id.selectBinsButton);
 
         vector = new Vector();
 
@@ -276,27 +291,35 @@ public class MapsActivity extends AppCompatActivity implements
             @Override
             public void onClick(View v) {
                 if (addClickFlag) {
+
                     addClickFlag = false;
-                    floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                    //floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                    floatingActionButton.setVisibility(View.GONE);
+                    floatingActionMenu.setVisibility(View.VISIBLE);
                     return;
                 }
                 if (deleteClickFlag) {
                     deleteClickFlag = false;
-                    floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                    //floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                    floatingActionButton.setVisibility(View.GONE);
+                    floatingActionMenu.setVisibility(View.VISIBLE);
                     return;
-                } else if (!userlocationFlag) {
-                    for (Object obj : vector) {
-                        if (obj instanceof Marker) {
-                            if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80) {
-                                Log.d(TAG, "onClick:Integer.parseInt(((Marker) obj).getSnippet())  " + Integer.parseInt(((Marker) obj).getSnippet()));
-                                waypoints.add((((Marker) obj).getPosition()));
-                            }
-                        }
+                }
+                if(selectFlag){
+                    selectFlag = false;
+                    if(!waypoints.isEmpty()){
+                        getUserLocation(map);
                     }
-                    getUserLocation(map);
+
                     floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
                     userlocationFlag = true;
-                } else {
+                    for (Marker marker : listOfMarkerForSelectedBins) {
+                        marker.remove();
+                        Log.d(TAG, "removing ");
+                    }
+                    return;
+                }
+                else {
                     userlocationFlag = false;
                     floatingActionButton.setImageResource(R.drawable.ic_show_direction);
                     for (Polyline line : polylines) {
@@ -307,9 +330,53 @@ public class MapsActivity extends AppCompatActivity implements
                         marker.remove();
                         Log.d(TAG, "removing ");
                     }
+
+                    floatingActionButton.setVisibility(View.GONE);
+                    floatingActionMenu.setVisibility(View.VISIBLE);
                 }
             }
         });
+
+        fabFilled.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                for (Object obj : vector) {
+                    if (obj instanceof Marker) {
+                        if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80) {
+                            waypoints.add((((Marker) obj).getPosition()));
+                        }
+                    }
+                }
+                getUserLocation(map);
+                floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
+                userlocationFlag = true;
+                floatingActionButton.setVisibility(View.VISIBLE);
+                floatingActionButton.setLabelText("Cancel");
+                floatingActionMenu.setVisibility(View.GONE);
+                floatingActionMenu.close(false);
+
+
+            }
+        });
+
+        fabSelect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectFlag = true;
+                floatingActionButton.setImageResource(R.drawable.ic_proceed);
+                 floatingActionButton.setVisibility(View.VISIBLE);
+                floatingActionButton.setLabelText("Proceed");
+                floatingActionMenu.setVisibility(View.GONE);
+                floatingActionMenu.close(false);
+
+            }
+        });
+
+
+
+
+
+
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
@@ -381,13 +448,26 @@ public class MapsActivity extends AppCompatActivity implements
                     AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(MapsActivity.this, R.style.MaterialBaseTheme_Light_AlertDialog));
                     builder.setMessage("Remove bin " + marker1.getTitle()).setPositiveButton("Yes", dialogClickListener)
                             .setNegativeButton("No", dialogClickListener).show();
+
+                    return false;
+
+                }
+                else if(selectFlag){
+
+                    waypoints.add(marker1.getPosition());
+                    Marker wpMarker = map.addMarker(new MarkerOptions().position(marker1.getPosition()).title("waypoint"));
+                    listOfMarkerForSelectedBins.add(wpMarker);
                 }
 
-                return false;
+                    return false;
 
             }
         });
     }
+
+
+
+
 
     protected Marker createMarker(GoogleMap map, double latitude, double longitude, long fill_level, int id) {
         if (fill_level >= 80)
@@ -434,6 +514,10 @@ public class MapsActivity extends AppCompatActivity implements
         });
     }
 
+
+
+
+
     private void createDrawer() {
         headerResult = new AccountHeaderBuilder()
                 .withActivity(MapsActivity.this)
@@ -471,18 +555,29 @@ public class MapsActivity extends AppCompatActivity implements
 
                                     if (!addClickFlag) {
                                         Toast.makeText(MapsActivity.this, "Tap on map to add a bin", Toast.LENGTH_SHORT).show();
+                                        floatingActionButton.setVisibility(View.VISIBLE);
+                                        floatingActionMenu.setVisibility(View.GONE);
+                                        floatingActionMenu.close(false);
+
                                         floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
                                         addClickFlag = true;
                                         deleteClickFlag = false;
                                         userlocationFlag = false;
+                                        floatingActionButton.setLabelText("Cancel");
+
                                     } else {
                                         addClickFlag = false;
-                                        floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                                        floatingActionButton.setVisibility(View.GONE);
+                                        floatingActionMenu.setVisibility(View.VISIBLE);
                                     }
                                     break;
                                 case 3:
                                     if (!deleteClickFlag) {
                                         Toast.makeText(MapsActivity.this, "Tap on the bin to remove it", Toast.LENGTH_SHORT).show();
+                                        floatingActionButton.setVisibility(View.VISIBLE);
+                                        floatingActionMenu.setVisibility(View.GONE);
+                                        floatingActionMenu.close(false);
+                                        floatingActionButton.setLabelText("Cancel");
                                         floatingActionButton.setImageResource(R.drawable.ic_fab_cancel);
                                         deleteClickFlag = true;
                                         userlocationFlag = false;
@@ -490,6 +585,8 @@ public class MapsActivity extends AppCompatActivity implements
                                     } else {
                                         deleteClickFlag = false;
                                         floatingActionButton.setImageResource(R.drawable.ic_show_direction);
+                                        floatingActionButton.setVisibility(View.GONE);
+                                        floatingActionMenu.setVisibility(View.VISIBLE);
                                     }
                                     break;
                                 case 4:
@@ -538,6 +635,10 @@ public class MapsActivity extends AppCompatActivity implements
             result.getActionBarDrawerToggle().setDrawerIndicatorEnabled(true);
         }
     }
+
+
+
+
 
     private LatLng getUserLocation(final GoogleMap map) {
         final LatLng[] latLng = new LatLng[1];
@@ -655,7 +756,6 @@ public class MapsActivity extends AppCompatActivity implements
         }*/
     }
 
-
     private void showDirection(LatLng userLocation) {
         GoogleDirection.withServerKey(getString(R.string.directionsApiKey))
                 .from(userLocation)
@@ -673,7 +773,7 @@ public class MapsActivity extends AppCompatActivity implements
                             int legCount = route.getLegList().size();
                             for (int index = 0; index < legCount; index++) {
                                 Leg leg = route.getLegList().get(index);
-                                markerForFilledBins = mMap.addMarker(new MarkerOptions().position(leg.getStartLocation().getCoordination()));
+                                markerForFilledBins = mMap.addMarker(new MarkerOptions().position(leg.getStartLocation().getCoordination()).title("waypoint"));
                                 listOfMarkerForFilledBins.add(markerForFilledBins);
                                 if (index == legCount - 1) {
                                     markerForFilledBins = mMap.addMarker(new MarkerOptions().position(leg.getEndLocation().getCoordination()));
@@ -686,6 +786,7 @@ public class MapsActivity extends AppCompatActivity implements
                                     polylines.add(polyline);
 
                                 }
+                                waypoints.clear();
                             }
                             setCameraWithCoordinationBounds(route);
 

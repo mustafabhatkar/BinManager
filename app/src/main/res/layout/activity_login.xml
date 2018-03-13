@@ -5,12 +5,12 @@
      xmlns:android="http://schemas.android.com/apk/res/android">
 
     <TextView
-        android:layout_marginTop="100dp"
+        android:id="@+id/textViewLogo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Project Bin"
-        android:id="@+id/textViewLogo"
         android:layout_marginBottom="10dp"
+        android:layout_marginTop="100dp"
+        android:text="Project Bin"
         android:textSize="40sp"
 
         />
