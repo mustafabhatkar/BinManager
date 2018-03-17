@@ -1,16 +1,21 @@
 package bin.project.binmanager;
 
+import android.annotation.SuppressLint;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.Criteria;
+import android.location.Location;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
-//import android.support.design.widget.FloatingActionButton;
-import com.github.clans.fab.FloatingActionButton;
-import com.github.clans.fab.FloatingActionMenu;
-
-
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -28,6 +33,12 @@ import com.akexorcist.googledirection.model.Leg;
 import com.akexorcist.googledirection.model.Route;
 import com.akexorcist.googledirection.model.Step;
 import com.akexorcist.googledirection.util.DirectionConverter;
+import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingClient;
+import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -39,6 +50,8 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -61,9 +74,12 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
+//import android.support.design.widget.FloatingActionButton;
+
 
 public class MapsActivity extends AppCompatActivity implements
         OnMapReadyCallback {
+    private static final int GEOFENCE_RADIUS = 100;
     private double[][] latLon = new double[100][2];
     //{{19.026756, 73.055807}, {19.027111, 73.057295}, {19.025488, 73.054763}, {19.026606, 73.055233}, {19.026264, 73.056633}};
 
@@ -111,7 +127,6 @@ public class MapsActivity extends AppCompatActivity implements
     private FloatingActionMenu floatingActionMenu;
 
 
-
     private Polyline polyline;
     private List<Polyline> polylines = new ArrayList<Polyline>();
     private List<Marker> listOfMarkerForFilledBins = new ArrayList<Marker>();
@@ -119,12 +134,15 @@ public class MapsActivity extends AppCompatActivity implements
 
 
     private Marker markerForFilledBins;
+    private GeofencingClient geofencingClient;
+    private Criteria criteria;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
         toolbar = findViewById(R.id.map_toolbar);
         setSupportActionBar(toolbar);
         floatingActionButton = findViewById(R.id.floatingActionButton);
@@ -133,6 +151,10 @@ public class MapsActivity extends AppCompatActivity implements
         fabSelect = findViewById(R.id.selectBinsButton);
 
         vector = new Vector();
+
+        locationManager = (LocationManager)
+                getSystemService(Context.LOCATION_SERVICE);
+        criteria = new Criteria();
 
 
         firebaseAuth = FirebaseAuth.getInstance();
@@ -176,6 +198,7 @@ public class MapsActivity extends AppCompatActivity implements
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        geofencingClient = LocationServices.getGeofencingClient(this);
 
 
     }
@@ -195,7 +218,8 @@ public class MapsActivity extends AppCompatActivity implements
     @Override
     public void onMapReady(final GoogleMap map) {
         mMap = map;
-        map.getUiSettings().setMapToolbarEnabled(false);
+        mMap.getUiSettings().setMapToolbarEnabled(false);
+
 
         vector.add(0, 0);
 
@@ -273,14 +297,15 @@ public class MapsActivity extends AppCompatActivity implements
             }
         });
 
-   /*     if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED) {
                 mMap.setMyLocationEnabled(true);
+
             }
         } else {
             mMap.setMyLocationEnabled(true);
-        }*/
+        }
         //  showDirection(userLocation);
 
 
@@ -305,9 +330,9 @@ public class MapsActivity extends AppCompatActivity implements
                     floatingActionMenu.setVisibility(View.VISIBLE);
                     return;
                 }
-                if(selectFlag){
+                if (selectFlag) {
                     selectFlag = false;
-                    if(!waypoints.isEmpty()){
+                    if (!waypoints.isEmpty()) {
                         getUserLocation(map);
                     }
 
@@ -318,8 +343,7 @@ public class MapsActivity extends AppCompatActivity implements
                         Log.d(TAG, "removing ");
                     }
                     return;
-                }
-                else {
+                } else {
                     userlocationFlag = false;
                     floatingActionButton.setImageResource(R.drawable.ic_show_direction);
                     for (Polyline line : polylines) {
@@ -364,18 +388,13 @@ public class MapsActivity extends AppCompatActivity implements
             public void onClick(View v) {
                 selectFlag = true;
                 floatingActionButton.setImageResource(R.drawable.ic_proceed);
-                 floatingActionButton.setVisibility(View.VISIBLE);
+                floatingActionButton.setVisibility(View.VISIBLE);
                 floatingActionButton.setLabelText("Proceed");
                 floatingActionMenu.setVisibility(View.GONE);
                 floatingActionMenu.close(false);
 
             }
         });
-
-
-
-
-
 
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
@@ -451,22 +470,20 @@ public class MapsActivity extends AppCompatActivity implements
 
                     return false;
 
-                }
-                else if(selectFlag){
+                } else if (selectFlag) {
 
                     waypoints.add(marker1.getPosition());
                     Marker wpMarker = map.addMarker(new MarkerOptions().position(marker1.getPosition()).title("waypoint"));
                     listOfMarkerForSelectedBins.add(wpMarker);
                 }
 
-                    return false;
+                return false;
 
             }
         });
+
+
     }
-
-
-
 
 
     protected Marker createMarker(GoogleMap map, double latitude, double longitude, long fill_level, int id) {
@@ -495,6 +512,7 @@ public class MapsActivity extends AppCompatActivity implements
                 try {
                     String fill_level_string = dataSnapshot.getValue().toString();
                     if (Integer.parseInt(fill_level_string) >= 80) {
+                        addLocationAlert(marker.getPosition().latitude, marker.getPosition().longitude);
                         marker.setSnippet(fill_level_string);
                         marker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bin_full));
                     } else {
@@ -513,9 +531,6 @@ public class MapsActivity extends AppCompatActivity implements
             }
         });
     }
-
-
-
 
 
     private void createDrawer() {
@@ -637,11 +652,9 @@ public class MapsActivity extends AppCompatActivity implements
     }
 
 
-
-
-
+    @SuppressLint("MissingPermission")
     private LatLng getUserLocation(final GoogleMap map) {
-        final LatLng[] latLng = new LatLng[1];
+  /*      final LatLng[] latLng = new LatLng[1];
         myRefUsers.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -668,9 +681,13 @@ public class MapsActivity extends AppCompatActivity implements
             public void onCancelled(DatabaseError databaseError) {
 
             }
-        });
+        });*/
+        Location location = locationManager.getLastKnownLocation(locationManager
+                .getBestProvider(criteria, false));
+        LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
+        showDirection(userLocation);
+        return userLocation;
 
-        return latLng[0];
 /*        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -804,10 +821,6 @@ public class MapsActivity extends AppCompatActivity implements
                 });
     }
 
-    @Override
-    public void onBackPressed() {
-
-    }
 
     private void setCameraWithCoordinationBounds(Route route) {
         LatLng southwest = route.getBound().getSouthwestCoordination().getCoordination();
@@ -815,6 +828,95 @@ public class MapsActivity extends AppCompatActivity implements
         LatLngBounds bounds = new LatLngBounds(southwest, northeast);
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
     }
+
+    @SuppressLint("MissingPermission")
+    private void addLocationAlert(double lat, double lng) {
+        if (isLocationAccessPermitted()) {
+            requestLocationAccessPermission();
+        } else {
+            String key = "" + lat + "-" + lng;
+            Geofence geofence = getGeofence(lat, lng, key);
+            geofencingClient.addGeofences(getGeofencingRequest(geofence),
+                    getGeofencePendingIntent())
+                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> task) {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(MapsActivity.this,
+                                        "Location alter has been added",
+                                        Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(MapsActivity.this,
+                                        "Location alter could not be added",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+        }
+    }
+
+    private void removeLocationAlert() {
+        if (isLocationAccessPermitted()) {
+            requestLocationAccessPermission();
+        } else {
+            geofencingClient.removeGeofences(getGeofencePendingIntent())
+                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> task) {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(MapsActivity.this,
+                                        "Location alters have been removed",
+                                        Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(MapsActivity.this,
+                                        "Location alters could not be removed",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+        }
+    }
+
+    private PendingIntent getGeofencePendingIntent() {
+        Intent intent = new Intent(MapsActivity.this, LocationAlertIntentService.class);
+        return PendingIntent.getService(this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    private GeofencingRequest getGeofencingRequest(Geofence geofence) {
+        GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
+
+        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL | Geofence.GEOFENCE_TRANSITION_ENTER);
+        builder.addGeofence(geofence);
+        return builder.build();
+    }
+
+    private Geofence getGeofence(double lat, double lang, String key) {
+        return new Geofence.Builder()
+                .setRequestId(key)
+                .setCircularRegion(lat, lang, GEOFENCE_RADIUS)
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
+                .setLoiteringDelay(10000)
+                .build();
+    }
+
+    private boolean isLocationAccessPermitted() {
+        if (ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void requestLocationAccessPermission() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                1);
+    }
+
 
 }
 

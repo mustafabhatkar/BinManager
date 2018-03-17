@@ -43,6 +43,10 @@
         <activity
             android:name=".Dashboard"
             android:theme="@style/OtherActivities" />
+
+        <service
+            android:name=".LocationAlertIntentService"
+            android:allowBackup="true" />
     </application>
 
 </manifest>
