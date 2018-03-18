@@ -3,9 +3,11 @@ package bin.project.binmanager;
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Criteria;
@@ -13,13 +15,21 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+//import android.support.design.widget.FloatingActionButton;
+import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
+
+
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.TextView;
@@ -70,15 +80,18 @@ import com.mikepenz.materialdrawer.model.interfaces.IDrawerItem;
 import com.mikepenz.materialdrawer.model.interfaces.IProfile;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
+
 
 //import android.support.design.widget.FloatingActionButton;
 
 
 public class MapsActivity extends AppCompatActivity implements
         OnMapReadyCallback {
+
     private static final int GEOFENCE_RADIUS = 100;
     private double[][] latLon = new double[100][2];
     //{{19.026756, 73.055807}, {19.027111, 73.057295}, {19.025488, 73.054763}, {19.026606, 73.055233}, {19.026264, 73.056633}};
@@ -97,6 +110,7 @@ public class MapsActivity extends AppCompatActivity implements
     private String TAG = MapsActivity.class.getSimpleName();
     private double lat, lng;
     private long fill_level;
+    private String marked_for_pickup="";
     private String disp_name = "";
     private String email = "";
 
@@ -122,9 +136,12 @@ public class MapsActivity extends AppCompatActivity implements
     private ValueEventListener fillListener;
 
     private Vector vector;
+    private SparseArray<String > filledBins = new SparseArray<String>();
+    private ArrayList<String > markedBins = new ArrayList<String>();
 
     private FloatingActionButton floatingActionButton, fabSelect, fabFilled;
     private FloatingActionMenu floatingActionMenu;
+
 
 
     private Polyline polyline;
@@ -132,16 +149,21 @@ public class MapsActivity extends AppCompatActivity implements
     private List<Marker> listOfMarkerForFilledBins = new ArrayList<Marker>();
     private List<Marker> listOfMarkerForSelectedBins = new ArrayList<Marker>();
 
-
+    private View infoView;
     private Marker markerForFilledBins;
     private GeofencingClient geofencingClient;
     private Criteria criteria;
-
+    public static Runnable runnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+
+                mMessageReceiver, new IntentFilter("bina"));
+
 
         toolbar = findViewById(R.id.map_toolbar);
         setSupportActionBar(toolbar);
@@ -203,6 +225,23 @@ public class MapsActivity extends AppCompatActivity implements
 
     }
 
+
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+
+        @Override
+
+        public void onReceive(Context context, Intent intent) {
+
+            String action = intent.getAction();
+    
+            Toast.makeText(context, "action  " + action, Toast.LENGTH_SHORT).show();
+
+        }
+
+    };
+
+
+
     private GeoApiContext getGeoContext() {
         GeoApiContext geoApiContext = new GeoApiContext.Builder()
                 .apiKey(getString(R.string.directionsApiKey))
@@ -232,18 +271,26 @@ public class MapsActivity extends AppCompatActivity implements
 
                 @Override
                 public View getInfoContents(Marker marker) {
-                    View v = getLayoutInflater().inflate(R.layout.bin_info_window, null);
-                    TextView bininfotitle = v.findViewById(R.id.binIdInfo);
-                    TextView bininfoFillLevel = v.findViewById(R.id.binFlInfo);
-                    TextView binFillLabel = v.findViewById(R.id.fillLabel);
+                    infoView = getLayoutInflater().inflate(R.layout.bin_info_window, null);
+                    TextView bininfotitle = infoView.findViewById(R.id.binIdInfo);
+                    TextView bininfoFillLevel = infoView.findViewById(R.id.binFlInfo);
+                    TextView binFillLabel = infoView.findViewById(R.id.fillLabel);
+                    TextView binMarked = infoView.findViewById(R.id.binMarked);
                     try {
-                        // TODO : marker data not reflecting in infowindow for location marker
-                        // though marker.infowindow shows data in info window
+                         // though marker.infowindow shows data in info window
+                        if (marker.getTag().toString().contains("markedByOther")) {
+                            bininfoFillLevel.setText(marker.getSnippet());
+                            binMarked.setVisibility(View.VISIBLE);
+                            binMarked.setText("Marked for pickup");
+
+                            bininfotitle.setTextSize(13);
+                            return infoView;
+                        }
                         if (marker.getTitle().contains("User")) {
                             bininfotitle.setText("User");
                             binFillLabel.setVisibility(View.GONE);
                             bininfoFillLevel.setVisibility(View.GONE);
-                            return v;
+                            return infoView;
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -251,11 +298,13 @@ public class MapsActivity extends AppCompatActivity implements
                     Log.d(TAG, "getInfoContents: " + marker.getTitle());
                     bininfotitle.setText("Bin " + marker.getTitle());
                     bininfoFillLevel.setText(marker.getSnippet());
-                    return v;
+
+                    return infoView;
                 }
             });
 
         }
+
         myRefBin.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -263,14 +312,19 @@ public class MapsActivity extends AppCompatActivity implements
                 int i = 1, id;
                 for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
                     Bins bins = snapshot.getValue(Bins.class);
+                    //Log.d(TAG, "onDataChange: bins " + bins.lat + " mapr" + bins.marked_for_pickup );
                     lat = bins.lat;
                     lng = bins.lng;
+                    //marked_for_pickup = bins.marked_for_pickup;
+
                     id = Integer.parseInt(snapshot.getKey());
                     fill_level = bins.fill_level;
+
                     /*if (fill_level >= 80) {
                         waypoints.add(new LatLng(lat, lng));
                     }*/
                     marker = createMarker(map, lat, lng, fill_level, id);
+                    marker.setTag("0");
                     while (i != id) {
                         vector.add(i, 1);
                         i++;
@@ -354,6 +408,11 @@ public class MapsActivity extends AppCompatActivity implements
                         marker.remove();
                         Log.d(TAG, "removing ");
                     }
+                    for(String s: markedBins)
+                    {
+                        myRefBin.child(s).child("marked_for_pickup").setValue(0);
+                    }
+                    markedBins.clear();
 
                     floatingActionButton.setVisibility(View.GONE);
                     floatingActionMenu.setVisibility(View.VISIBLE);
@@ -364,9 +423,12 @@ public class MapsActivity extends AppCompatActivity implements
         fabFilled.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                markedBins.clear();
                 for (Object obj : vector) {
                     if (obj instanceof Marker) {
-                        if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80) {
+                        if (Integer.parseInt(((Marker) obj).getSnippet()) >= 80 && !((Marker) obj).getTag().equals("markedByOther")) {
+                            markedBins.add(((Marker) obj).getTitle());
+                            myRefBin.child(((Marker) obj).getTitle()).child("marked_for_pickup").setValue(firebaseAuth.getUid()); //
                             waypoints.add((((Marker) obj).getPosition()));
                         }
                     }
@@ -427,6 +489,7 @@ public class MapsActivity extends AppCompatActivity implements
                                     myRefBin.child(binId).child("lat").setValue(point.latitude);
                                     myRefBin.child(binId).child("lng").setValue(point.longitude);
                                     myRefBin.child(binId).child("fill_level").setValue(0);
+                                    myRefBin.child(binId).child("marked_for_pickup").setValue("0");
                                     break;
 
                                 case DialogInterface.BUTTON_NEGATIVE:
@@ -472,8 +535,13 @@ public class MapsActivity extends AppCompatActivity implements
 
                 } else if (selectFlag) {
 
+                    if(!marker1.getTag().equals(0))
+                        return false;
                     waypoints.add(marker1.getPosition());
                     Marker wpMarker = map.addMarker(new MarkerOptions().position(marker1.getPosition()).title("waypoint"));
+                    markedBins.add(marker1.getTitle());
+                    myRefBin.child(marker1.getTitle()).child("marked_for_pickup").setValue(firebaseAuth.getUid()); //
+                    // Log.d(TAG, "onMarkerClick: "+ marker1.getTitle());
                     listOfMarkerForSelectedBins.add(wpMarker);
                 }
 
@@ -503,7 +571,7 @@ public class MapsActivity extends AppCompatActivity implements
                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bin_normal)));
     }
 
-    private void changeBinMarker(final Marker marker, final GoogleMap map, String title) {
+    private void changeBinMarker(final Marker marker, final GoogleMap map,final String title) {
         fillListener = myRefBin.child(title).child("fill_level").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -512,7 +580,8 @@ public class MapsActivity extends AppCompatActivity implements
                 try {
                     String fill_level_string = dataSnapshot.getValue().toString();
                     if (Integer.parseInt(fill_level_string) >= 80) {
-                        addLocationAlert(marker.getPosition().latitude, marker.getPosition().longitude);
+
+                        addLocationAlert(marker.getPosition().latitude, marker.getPosition().longitude, title);
                         marker.setSnippet(fill_level_string);
                         marker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bin_full));
                     } else {
@@ -530,8 +599,31 @@ public class MapsActivity extends AppCompatActivity implements
                 Log.w(TAG, "Failed to read value.", error.toException());
             }
         });
-    }
 
+        myRefBin.child(title).child("marked_for_pickup").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // This method is called once with the initial value and again
+                // whenever data at this location is updated.
+                String markedString = dataSnapshot.getValue().toString();
+                try {
+                     if(!markedString.equalsIgnoreCase("0") && !markedString.equalsIgnoreCase(firebaseAuth.getUid())) {
+                         Log.d(TAG, "onDataChange: marked" + dataSnapshot.getValue());
+                         marker.setTag("markedByOther");
+                     }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+    }
 
     private void createDrawer() {
         headerResult = new AccountHeaderBuilder()
@@ -686,6 +778,8 @@ public class MapsActivity extends AppCompatActivity implements
                 .getBestProvider(criteria, false));
         LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
         showDirection(userLocation);
+//        myRefUsers.child("lat").setValue(userLocation.latitude);
+//        myRefUsers.child("lng").setValue(userLocation.longitude);
         return userLocation;
 
 /*        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -821,6 +915,10 @@ public class MapsActivity extends AppCompatActivity implements
                 });
     }
 
+    @Override
+    public void onBackPressed() {
+
+    }
 
     private void setCameraWithCoordinationBounds(Route route) {
         LatLng southwest = route.getBound().getSouthwestCoordination().getCoordination();
@@ -830,14 +928,14 @@ public class MapsActivity extends AppCompatActivity implements
     }
 
     @SuppressLint("MissingPermission")
-    private void addLocationAlert(double lat, double lng) {
+    private void addLocationAlert(double lat, double lng, String binNo) {
         if (isLocationAccessPermitted()) {
             requestLocationAccessPermission();
         } else {
             String key = "" + lat + "-" + lng;
-            Geofence geofence = getGeofence(lat, lng, key);
+            Geofence geofence = getGeofence(lat, lng, key, binNo);
             geofencingClient.addGeofences(getGeofencingRequest(geofence),
-                    getGeofencePendingIntent())
+                    getGeofencePendingIntent(binNo))
                     .addOnCompleteListener(new OnCompleteListener<Void>() {
                         @Override
                         public void onComplete(@NonNull Task<Void> task) {
@@ -852,6 +950,7 @@ public class MapsActivity extends AppCompatActivity implements
                             }
                         }
                     });
+
         }
     }
 
@@ -859,7 +958,7 @@ public class MapsActivity extends AppCompatActivity implements
         if (isLocationAccessPermitted()) {
             requestLocationAccessPermission();
         } else {
-            geofencingClient.removeGeofences(getGeofencePendingIntent())
+            geofencingClient.removeGeofences(getGeofencePendingIntent(""))
                     .addOnCompleteListener(new OnCompleteListener<Void>() {
                         @Override
                         public void onComplete(@NonNull Task<Void> task) {
@@ -877,23 +976,26 @@ public class MapsActivity extends AppCompatActivity implements
         }
     }
 
-    private PendingIntent getGeofencePendingIntent() {
+    //TODO : send data to service class for displaying in notification
+    private PendingIntent getGeofencePendingIntent(String binNo) {
         Intent intent = new Intent(MapsActivity.this, LocationAlertIntentService.class);
+        intent.putExtra("binNo", binNo);
+        Log.d(TAG, "addLocationAlert: binNo" + binNo);
+
         return PendingIntent.getService(this, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     private GeofencingRequest getGeofencingRequest(Geofence geofence) {
         GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
-
         builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL | Geofence.GEOFENCE_TRANSITION_ENTER);
         builder.addGeofence(geofence);
         return builder.build();
     }
 
-    private Geofence getGeofence(double lat, double lang, String key) {
+    private Geofence getGeofence(double lat, double lang, String key, String binNo) {
         return new Geofence.Builder()
-                .setRequestId(key)
+                .setRequestId(key).setRequestId(binNo)
                 .setCircularRegion(lat, lang, GEOFENCE_RADIUS)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
@@ -916,6 +1018,12 @@ public class MapsActivity extends AppCompatActivity implements
                 new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                 1);
     }
+
+    private void pickUp(){
+
+    }
+
+
 
 
 }
