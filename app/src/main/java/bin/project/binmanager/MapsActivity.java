@@ -234,7 +234,7 @@ public class MapsActivity extends AppCompatActivity implements
 
             String action = intent.getAction();
     
-            Toast.makeText(context, "action  " + action, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(context, "action  " + action, Toast.LENGTH_SHORT).show();
 
         }
 
@@ -278,6 +278,12 @@ public class MapsActivity extends AppCompatActivity implements
                     TextView binMarked = infoView.findViewById(R.id.binMarked);
                     try {
                          // though marker.infowindow shows data in info window
+                        if(marker.getTitle().contains("waypoint")){
+                            bininfotitle.setText("waypoint");
+                            binFillLabel.setVisibility(View.GONE);
+                            bininfoFillLevel.setVisibility(View.GONE);
+                            return infoView;
+                        }
                         if (marker.getTag().toString().contains("markedByOther")) {
                             bininfoFillLevel.setText(marker.getSnippet());
                             binMarked.setVisibility(View.VISIBLE);
@@ -286,6 +292,16 @@ public class MapsActivity extends AppCompatActivity implements
                             bininfotitle.setTextSize(13);
                             return infoView;
                         }
+                        if (marker.getTag().toString().contains("markedByOther")) {
+                            bininfoFillLevel.setText(marker.getSnippet());
+                            binMarked.setVisibility(View.VISIBLE);
+                            binMarked.setText("Marked for pickup");
+
+                            bininfotitle.setTextSize(13);
+                            return infoView;
+                        }
+
+
                         if (marker.getTitle().contains("User")) {
                             bininfotitle.setText("User");
                             binFillLabel.setVisibility(View.GONE);
@@ -535,8 +551,8 @@ public class MapsActivity extends AppCompatActivity implements
 
                 } else if (selectFlag) {
 
-                    if(!marker1.getTag().equals(0))
-                        return false;
+//                    if(!marker1.getTag().equals("0"))
+//                        return false;
                     waypoints.add(marker1.getPosition());
                     Marker wpMarker = map.addMarker(new MarkerOptions().position(marker1.getPosition()).title("waypoint"));
                     markedBins.add(marker1.getTitle());
@@ -995,7 +1011,7 @@ public class MapsActivity extends AppCompatActivity implements
 
     private Geofence getGeofence(double lat, double lang, String key, String binNo) {
         return new Geofence.Builder()
-                .setRequestId(key).setRequestId(binNo)
+                .setRequestId(key)
                 .setCircularRegion(lat, lang, GEOFENCE_RADIUS)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)

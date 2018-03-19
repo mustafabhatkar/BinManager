@@ -134,23 +134,20 @@ public class LocationAlertIntentService extends IntentService {
     private String getTransitionString(int transitionType, String binNo) {
         switch (transitionType) {
             case Geofence.GEOFENCE_TRANSITION_ENTER:
-
-                return "bin "+ binNo;
+                return "filled bin near you";
             case Geofence.GEOFENCE_TRANSITION_EXIT:
-                return "Exit bin "+ binNo;
+                return "filled bin near you";
             case Geofence.GEOFENCE_TRANSITION_DWELL:
-                return "bin "+ binNo;
+                return "filled bin near you";
             default:
                 return "location transition";
         }
     }
 
     private void notifyLocationAlert(String locTransitionType, String locationDetails) {
-        Intent intent = new Intent("bina");
-        intent.putExtra("s","sd");
-        //LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this,1, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
+        //LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        //PendingIntent pendingIntent = PendingIntent.getBroadcast(this,1, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         //PendingIntent pendingIntent = PendingIntent.getActivity(this,1,intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
 
@@ -159,15 +156,10 @@ public class LocationAlertIntentService extends IntentService {
                 new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle(locTransitionType)
-                        .setContentText("Click to mark bin for pickup")
-                        .setContentIntent(pendingIntent);
-                ;
-
+                        .setContentText(locationDetails);
         builder.setAutoCancel(true);
-
         NotificationManager mNotificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
         mNotificationManager.notify(0, builder.build());
     }
     private PendingIntent getGeofencePendingIntent(){
